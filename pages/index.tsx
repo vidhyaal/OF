@@ -212,7 +212,7 @@ const Home: NextPage = () => {
                   onClick={() => createTransaction()}
                   disabled={disableCheckout}
                 >
-                  Pay Now
+                  Pay with BNPL
                 </button>
               </div>
             </div>
