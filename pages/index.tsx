@@ -8,38 +8,43 @@ import { OpenFabric, Environment, PGConfig } from "@openfabric/merchant-sdk";
 import { useState, useEffect } from "react";
 import merchantToken from "./api/merchantToken";
 
-interface ITransactionModel  { account_reference_id : string, id: string }
-interface ITransactionDetails {status: string}
+interface ITransactionModel {
+  account_reference_id: string;
+  id: string;
+}
+interface ITransactionDetails {
+  status: string;
+}
 
 const Home: NextPage = () => {
- 
   const [accessToken, setAccessToken] = useState("");
-  const [createTransactionResponse, SetCreateTransactionResponse] = useState<ITransactionModel>({account_reference_id: "", id: ""})
+  const [createTransactionResponse, SetCreateTransactionResponse] =
+    useState<ITransactionModel>({ account_reference_id: "", id: "" });
   const [merchantAccessToken, setMerchantAccessToken] = useState("");
   const [disableCheckout, SetDisableCheckout] = useState(true);
   const [showCheckoutBlock, SetShowCheckoutBlock] = useState(false);
   const [showApprovetBlock, SetShowApproveBlock] = useState(true);
-  const [transactionDetails, setTransactionDetails] = useState<ITransactionDetails>({status: ""})
+  const [transactionDetails, setTransactionDetails] =
+    useState<ITransactionDetails>({ status: "" });
   const [showStatusBlock, SetShowStatusBlock] = useState(true);
-  
+  const [hideApproveDeclineButton, SetHideApproveDeclineButton] =
+    useState(false);
 
   const getToken = () => {
     fetch("/api/token")
       .then((response) => response.json())
       .then(({ access_token }) => {
         setAccessToken(access_token);
-        console.log(access_token);
-        SetDisableCheckout(false)
+        SetDisableCheckout(false);
       });
   };
 
-  const getMerchantToken = () => { 
+  const getMerchantToken = () => {
     fetch("/api/merchantToken")
       .then((response) => response.json())
       .then(({ access_token }) => {
         setMerchantAccessToken(access_token);
-        console.log(access_token);
-        SetDisableCheckout(false)
+        SetDisableCheckout(false);
       });
   };
 
@@ -80,47 +85,50 @@ const Home: NextPage = () => {
     post_code: "068898",
   };
 
-  const approve = () => {
-    if(createTransactionResponse?.account_reference_id) {
-      fetch("api/approveOrDecline", {
+  const approveOrDecline = (action: string) => {
+    if (createTransactionResponse?.account_reference_id) {
+      fetch("api/approveOrDecline?action=" + action, {
         method: "POST", // or 'PUT'
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ approveId: createTransactionResponse?.account_reference_id, token: merchantAccessToken}),
+        body: JSON.stringify({
+          approveId: createTransactionResponse?.account_reference_id,
+          token: merchantAccessToken,
+        }),
       })
-      .then((response) => response.json())
-      .then(({ data }) => {
-       console.log(data)
-       if(data === 'APPROVED') {
-         // get transaction transaction_details
-         fetch("api/getTransactions", {
-          method: "POST", // or 'PUT'
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ transactionId: createTransactionResponse?.id, token: accessToken}),
-        })
-         .then((response) => response.json())
-         .then(({ data }) => {
-          setTransactionDetails(JSON.parse(data));
-           console.log(data);
-           SetShowStatusBlock(false)
-         });
-
-       }
-      });
-    }else {
-      console.log("No Create response")
+        .then((response) => response.json())
+        .then(({ data }) => {
+          if (data === "APPROVED") {
+            // get transaction transaction_details
+            fetch("api/getTransactions", {
+              method: "POST", // or 'PUT'
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                transactionId: createTransactionResponse?.id,
+                token: accessToken,
+              }),
+            })
+              .then((response) => response.json())
+              .then(({ data }) => {
+                setTransactionDetails(JSON.parse(data));
+                SetHideApproveDeclineButton(true);
+                SetShowStatusBlock(false);
+              });
+          }
+        });
+    } else {
+      console.log("No Create response");
     }
-   
-  }
+  };
 
   const decline = () => {
-    console.log("Transaction declined!");
-    setTransactionDetails({status:"Transaction cannot be approved!"});
-    SetShowStatusBlock(false)
-  }
+    setTransactionDetails({ status: "Transaction cannot be approved!" });
+    SetShowStatusBlock(false);
+    SetHideApproveDeclineButton(true);
+  };
 
   const createTransaction = () => {
     const merchant_reference_id = `MT${Date.now()}`;
@@ -153,11 +161,10 @@ const Home: NextPage = () => {
     })
       .then((response) => response.json())
       .then((data) => {
-        console.log("Success:", data);
-        SetCreateTransactionResponse(data)
-        if(data.id) {
-          SetShowCheckoutBlock(true)
-          SetShowApproveBlock(false)
+        SetCreateTransactionResponse(data);
+        if (data.id) {
+          SetShowCheckoutBlock(true);
+          SetShowApproveBlock(false);
         }
       })
       .catch((error) => {
@@ -183,113 +190,88 @@ const Home: NextPage = () => {
       </Head>
 
       <div className="container mt-2">
-        
         <div className={showCheckoutBlock ? styles.hidden : undefined}>
-        <h4 className="mb-3">
-          <strong>Payment</strong>
-        </h4>
-          <div className="row">
-            <div className="col-md-6 mb-2">
-              <div className="md-form md-outline my-2">
-                <input
-                  type="text"
-                  id="cc-name"
-                  className="form-control"
-                  value="Vidhya"
-                  required
-                />
-                <label htmlFor="cc-name">Name on card</label>
-              </div>
-              <div className="invalid-feedback">Name on card is required</div>
-            </div>
-            <div className="col-md-6 mb-2">
-              <div className="md-form md-outline my-2">
-                <input
-                  type="text"
-                  id="cc-number"
-                  className="form-control"
-                  value="4242424242424242"
-                  required
-                />
-                <label htmlFor="cc-number">Credit card number</label>
-              </div>
-              <div className="invalid-feedback">
-                Credit card number is required
-              </div>
-            </div>
-          </div>
-          <div className="row">
-            <div className="col-md-3 mb-2">
-              <div className="md-form md-outline my-2">
-                <input
-                  type="text"
-                  id="cc-expiration"
-                  className="form-control"
-                  value="03/34"
-                  required
-                />
-                <label htmlFor="cc-expiration">Expiration</label>
-              </div>
-              <div className="invalid-feedback">Expiration date required</div>
-            </div>
-            <div className="col-md-3 mb-2">
-              <div className="md-form md-outline my-2">
-                <input
-                  type="text"
-                  id="cc-cvv"
-                  className="form-control"
-                  value="788"
-                  required
-                />
-                <label htmlFor="cc-cvv">CVV</label>
-              </div>
-              <div className="invalid-feedback">Security code required</div>
-            </div>
-          </div>
-          <hr className="mb-4" />
-          <button
-            className="btn btn-primary btn-lg btn-block"
-            type="submit"
-            onClick={() => createTransaction()}
-            disabled={disableCheckout}
-          >
-            Continue to checkout
-          </button>
-          </div>
-          <div className={showApprovetBlock ? styles.hidden :  undefined} id="approveBlock">
           <h4 className="mb-3">
-          <strong>Account Dashboard</strong>
-        </h4>
+            <strong>Payment</strong>
+          </h4>
+          <div className="row"></div>
+          <div className="row">
+            <div className="card">
+              <img
+                className="card-img-top"
+                src="/camera.png"
+                alt="Card image cap"
+                style={{ width: "18rem" }}
+              />
+              <div className="card-body">
+                <h5 className="card-title">Sony Camera</h5>
+                <p className="card-text">Best camera - low price $100</p>
+                <button
+                  className="btn btn-primary btn-lg btn-block"
+                  type="submit"
+                  onClick={() => createTransaction()}
+                  disabled={disableCheckout}
+                >
+                  Pay Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          className={showApprovetBlock ? styles.hidden : undefined}
+          id="approveBlock"
+        >
+          <h4 className="mb-3">
+            <strong>Account Dashboard</strong>
+          </h4>
           <div className="card">
             <div className="card-body">
-              Transation created : {createTransactionResponse?.account_reference_id}
-
+              Transation created :{" "}
+              {createTransactionResponse?.account_reference_id}
               <hr />
               <div className="row">
                 <div className="col-2">
-                    <button className="btn btn-primary btn-xs" onClick={() => approve()}>Approve</button>  
+                  <button
+                    className="btn btn-primary btn-xs"
+                    onClick={() => approveOrDecline("Approved")}
+                    disabled={hideApproveDeclineButton}
+                  >
+                    Approve
+                  </button>
                 </div>
                 <div className="col-2">
-                <button className="btn btn-danger btn-xs" onClick={() => decline  ()}>Decline</button>
+                  <button
+                    className="btn btn-danger btn-xs"
+                    onClick={() => approveOrDecline("Failed")}
+                    disabled={hideApproveDeclineButton}
+                  >
+                    Decline
+                  </button>
                 </div>
               </div>
               <div>
-              <hr />
-              <div role="alert" className={showStatusBlock ? styles.hidden :  "alert alert-primary"}>
-                {transactionDetails? transactionDetails.status : ""}
-                <br />
-                <code>
-                  {transactionDetails ? JSON.stringify(transactionDetails, undefined, 2) : ""}
-                </code>
-              </div>
+                <hr />
+                <div
+                  role="alert"
+                  className={
+                    showStatusBlock ? styles.hidden : "alert alert-primary"
+                  }
+                >
+                  {transactionDetails ? transactionDetails.status : ""}
+                  <br />
+                  <code>
+                    {transactionDetails
+                      ? JSON.stringify(transactionDetails, undefined, 2)
+                      : ""}
+                  </code>
+                </div>
               </div>
             </div>
           </div>
-          </div>
+        </div>
       </div>
     </div>
-
-   
   );
 };
 
