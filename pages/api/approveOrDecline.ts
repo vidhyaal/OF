@@ -12,10 +12,11 @@ export default function handler(
 ) {
   const approveId = req.body.approveId;
   const token = req.body.token;
+  const action = req.query.action;
 
   const payload = {
     "account_reference_id": approveId,
-    "status": "Approved",
+    "status": action,
     "amount":100,
     "currency":"SGD"
   }
