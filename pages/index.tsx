@@ -14,6 +14,7 @@ interface ITransactionModel {
 }
 interface ITransactionDetails {
   status: string;
+  card_fetch_token: string;
 }
 
 const Home: NextPage = () => {
@@ -25,10 +26,12 @@ const Home: NextPage = () => {
   const [showCheckoutBlock, SetShowCheckoutBlock] = useState(false);
   const [showApprovetBlock, SetShowApproveBlock] = useState(true);
   const [transactionDetails, setTransactionDetails] =
-    useState<ITransactionDetails>({ status: "" });
+    useState<ITransactionDetails>({ status: "", card_fetch_token:"" });
   const [showStatusBlock, SetShowStatusBlock] = useState(true);
   const [hideApproveDeclineButton, SetHideApproveDeclineButton] =
     useState(false);
+ 
+
 
   const getToken = () => {
     fetch("/api/token")
@@ -85,15 +88,15 @@ const Home: NextPage = () => {
     post_code: "068898",
   };
 
-  const approveOrDecline = (action: string) => {
-    if (createTransactionResponse?.account_reference_id) {
+  const approveOrDecline = (action: string, acctId: string, txnId: string) => {
+    if (acctId) {
       fetch("api/approveOrDecline?action=" + action, {
         method: "POST", // or 'PUT'
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          approveId: createTransactionResponse?.account_reference_id,
+          approveId: acctId,
           token: merchantAccessToken,
         }),
       })
@@ -107,7 +110,7 @@ const Home: NextPage = () => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                transactionId: createTransactionResponse?.id,
+                transactionId: txnId,
                 token: accessToken,
               }),
             })
@@ -116,6 +119,9 @@ const Home: NextPage = () => {
                 setTransactionDetails(JSON.parse(data));
                 SetHideApproveDeclineButton(true);
                 SetShowStatusBlock(false);
+                
+                localStorage.setItem("last_transaction", JSON.stringify(data));
+                localStorage.setItem("card_fetch_token", JSON.parse(data).card_fetch_token);
               });
           }
         });
@@ -124,11 +130,7 @@ const Home: NextPage = () => {
     }
   };
 
-  const decline = () => {
-    setTransactionDetails({ status: "Transaction cannot be approved!" });
-    SetShowStatusBlock(false);
-    SetHideApproveDeclineButton(true);
-  };
+
 
   const createTransaction = () => {
     const merchant_reference_id = `MT${Date.now()}`;
@@ -165,6 +167,10 @@ const Home: NextPage = () => {
         if (data.id) {
           SetShowCheckoutBlock(true);
           SetShowApproveBlock(false);
+          setTimeout(() =>{
+            approveOrDecline("Approved", data.account_reference_id, data.id)
+          }, 500)
+          
         }
       })
       .catch((error) => {
@@ -205,14 +211,14 @@ const Home: NextPage = () => {
               />
               <div className="card-body">
                 <h5 className="card-title">Sony Camera</h5>
-                <p className="card-text">Best camera - low price $100</p>
+                <p className="card-text">Best camera - low price SGD 2300</p>
                 <button
                   className="btn btn-primary btn-lg btn-block"
                   type="submit"
                   onClick={() => createTransaction()}
                   disabled={disableCheckout}
                 >
-                  Pay with BNPL
+                  Pay Now with BNPL
                 </button>
               </div>
             </div>
@@ -223,49 +229,23 @@ const Home: NextPage = () => {
           id="approveBlock"
         >
           <h4 className="mb-3">
-            <strong>Account Dashboard</strong>
+            <strong>Consumer Dashboard</strong>
           </h4>
           <div className="card">
             <div className="card-body">
               Transation created :{" "}
               {createTransactionResponse?.account_reference_id}
-              <hr />
-              <div className="row">
-                <div className="col-2">
-                  <button
-                    className="btn btn-primary btn-xs"
-                    onClick={() => approveOrDecline("Approved")}
-                    disabled={hideApproveDeclineButton}
-                  >
-                    Approve
-                  </button>
-                </div>
-                <div className="col-2">
-                  <button
-                    className="btn btn-danger btn-xs"
-                    onClick={() => approveOrDecline("Failed")}
-                    disabled={hideApproveDeclineButton}
-                  >
-                    Decline
-                  </button>
-                </div>
-              </div>
+            
+   
               <div>
                 <hr />
-                <div
-                  role="alert"
-                  className={
-                    showStatusBlock ? styles.hidden : "alert alert-primary"
-                  }
-                >
-                  {transactionDetails ? transactionDetails.status : ""}
-                  <br />
-                  <code>
-                    {transactionDetails
-                      ? JSON.stringify(transactionDetails, undefined, 2)
-                      : ""}
-                  </code>
-                </div>
+                <div role="alert" className={showStatusBlock ? styles.hidden :  "alert alert-primary"}>
+                {transactionDetails? transactionDetails.status : ""}
+                <br />
+                <code>
+                  {transactionDetails ? JSON.stringify(transactionDetails, undefined, 2) : ""}
+                </code>
+              </div>
               </div>
             </div>
           </div>
